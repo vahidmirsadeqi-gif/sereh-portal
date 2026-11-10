@@ -88,27 +88,27 @@
     <div class="cards">
       <a id="cryptoBtn" class="btn btn-crypto" href="#">
         <div style="text-align:right">
-          🐋 داشبورد کریپتوسِرِه (CryptoSereh v2.0)
-          <span class="sub">رادار نهنگ‌ها، آنچین + تحلیلگر اختصاصی ارز و نقاط خرید/شورت</span>
+          🐋 داشبورد کریپتوسِرِه (CryptoSereh v2.1)
+          <span class="sub">رادار نهنگ‌ها، میکرواستراکچر اوردربوک، کارنامه معاملات و تحلیلگر ارز</span>
         </div>
         <span>‹</span>
       </a>
 
       <a id="tseBtn" class="btn btn-tse" href="#">
         <div style="text-align:right">
-          📊 داشبورد بورس ایران (SerehSignalBot)
+          📊 داشبورد بورس ایران (SerehSignalBot V09)
           <span class="sub">ورود و خروج پول حقیقی، سهام، صندوق‌ها و اختیار معامله</span>
         </div>
         <span>‹</span>
       </a>
 
       <a class="btn btn-local" href="http://127.0.0.1:8766">
-        <span>⚡ ورود مستقیم بدون اینترنت/فیلترشکن (کریپتو: 8766)</span>
+        <span>⚡ ورود مستقیم روی همین گوشی (کریپتو: 8766)</span>
         <span>‹</span>
       </a>
 
       <a class="btn btn-local" href="http://127.0.0.1:8765">
-        <span>⚡ ورود مستقیم بدون اینترنت/فیلترشکن (بورس: 8765)</span>
+        <span>⚡ ورود مستقیم روی همین گوشی (بورس: 8765)</span>
         <span>‹</span>
       </a>
     </div>
@@ -117,23 +117,74 @@
   </div>
 
   <script>
+    const GIST_ID = "9161466418d74799402ec422d1811153";
+
+    async function fetchTunnelData() {
+      const ts = Date.now();
+      // 1. Primary: GitHub Gist API (instant updates, zero GitHub Pages rebuilds, no 5-min raw cache)
+      try {
+        const res = await fetch(`https://api.github.com/gists/${GIST_ID}?t=${ts}`, { cache: "no-store" });
+        if (res.ok) {
+          const gist = await res.json();
+          const raw = gist?.files?.["tunnels.json"]?.content;
+          if (raw) return JSON.parse(raw);
+        }
+      } catch (_) {}
+
+      // 2. Fallback: Gist raw URL
+      try {
+        const res = await fetch(
+          `https://gist.githubusercontent.com/vahidmirsadeqi-gif/${GIST_ID}/raw/tunnels.json?t=${ts}`,
+          { cache: "no-store" }
+        );
+        if (res.ok) return await res.json();
+      } catch (_) {}
+
+      // 3. Final fallback: static repo file
+      const res = await fetch(`./tunnels.json?t=${ts}`, { cache: "no-store" });
+      return await res.json();
+    }
+
     async function init() {
       const params = new URLSearchParams(location.search);
       const go = params.get("go");
+      const meta = document.getElementById("metaText");
+      const cryptoBtn = document.getElementById("cryptoBtn");
+      const tseBtn = document.getElementById("tseBtn");
+
       try {
-        const res = await fetch(
-          "https://raw.githubusercontent.com/vahidmirsadeqi-gif/sereh-portal/master/tunnels.json?t=" + Date.now(),
-          { cache: "no-store" }
-        );
-        const data = await res.json();
-        document.getElementById("cryptoBtn").href = data.crypto_url;
-        document.getElementById("tseBtn").href = data.tse_url;
-        document.getElementById("metaText").textContent =
-          "آخرین همگام‌سازی خودکار سرور: " + (data.updated_at || "فعال");
-        if (go === "crypto" && data.crypto_url) location.replace(data.crypto_url);
-        if (go === "tse" && data.tse_url) location.replace(data.tse_url);
+        const data = await fetchTunnelData();
+        if (data.crypto_url) {
+          cryptoBtn.href = data.crypto_url;
+        } else {
+          cryptoBtn.style.opacity = "0.6";
+          cryptoBtn.onclick = (e) => { e.preventDefault(); meta.textContent = "تونل کریپتوسِرِه هنوز آماده نیست، چند ثانیه دیگر رفرش کنید."; };
+        }
+        if (data.tse_url) {
+          tseBtn.href = data.tse_url;
+        } else {
+          tseBtn.style.opacity = "0.6";
+          tseBtn.onclick = (e) => { e.preventDefault(); meta.textContent = "تونل بورس هنوز آماده نیست، چند ثانیه دیگر رفرش کنید."; };
+        }
+
+        meta.textContent = "آخرین همگام‌سازی خودکار سرور: " + (data.updated_at || "فعال");
+
+        if (go === "crypto") {
+          if (data.crypto_url) {
+            location.replace(data.crypto_url);
+          } else {
+            meta.textContent = "تونل کریپتو در حال اتصال مجدد است؛ لطفاً چند ثانیه بعد دوباره تلاش کنید.";
+          }
+        }
+        if (go === "tse") {
+          if (data.tse_url) {
+            location.replace(data.tse_url);
+          } else {
+            meta.textContent = "تونل بورس در حال اتصال مجدد است؛ لطفاً چند ثانیه بعد دوباره تلاش کنید.";
+          }
+        }
       } catch (e) {
-        document.getElementById("metaText").textContent = "خطا در دریافت آدرس؛ دوباره تلاش کنید.";
+        meta.textContent = "خطا در دریافت آدرس؛ لطفاً اتصال اینترنت یا فیلترشکن را چک کنید و رفرش بزنید.";
       }
     }
     init();
